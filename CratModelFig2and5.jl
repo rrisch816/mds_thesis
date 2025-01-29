@@ -388,3 +388,85 @@ end
 
 
 ### ---
+
+## --- Generate Figure 2 or 5
+
+# Inputs
+min_crat_matrix=[.016, .063, .125, .178, .25, .375, .5, 1.]
+sub_area = 100
+
+# Seed the global rng
+Random.seed!(reinterpret(Int,time()))
+
+# Run the model
+(age_matrix, age_avg, age_std, beta_avg, beta_std, age_med, age_25, age_75) =
+    CratModelFig2and5(min_crat_matrix=min_crat_matrix, sub_area=sub_area)
+
+f = plot(xlabel="Minimum crater diameter (m)", ylabel="Median calculated age (Ga)",
+    fg_color_legend=:white, legend=:bottomright)
+for i = 1:length(age_matrix)
+    med = age_med[i,:]
+    quant25 = med .- age_25[i,:]
+    quant75 = age_75[i,:] .- med
+    plot!(f, min_crat_matrix.*1000, med, yerror=(quant25, quant75),
+        seriestype=:scatter, markershape=:auto, mscolor=:auto,
+        label="$(age_matrix[i])")
+end
+plot!(f, title="$(sub_area) km^2", xscale=:log10, ylims=(0,4), xlims=(10,1200))
+plot!(f, xticks=([16,63,125,250,500,1000],["16","63","125","250","500","1000"]))
+savefig(f, "age_diameter_scaling.pdf")
+display(f)
+
+## --- Generate Figure 7 or
+
+filepath = "QuantainLandslideCraters.diam"
+CUMULATIVE = false
+SKIP_EMPTY = true
+iters = 100
+prec = 0.25
+
+# Seed the global rng
+Random.seed!(reinterpret(Int,time()))
+
+(fit_ages, fit_betas, fit_craters, diameters, compare_count, sub_surf) =
+    CratModelFig7and8(filepath=filepath, CUMULATIVE=CUMULATIVE, SKIP_EMPTY=SKIP_EMPTY,
+                      iters=iters, prec=prec)
+
+age_hist_bins = 0:0.5:4
+beta_hist_bins = 0:50:400
+diameter_min = minimum(diameters)
+plottitle = "$filepath; $sub_surf km^2; Dmin: $diameter_min km;$(CUMULATIVE ? "" : " not") cumulative; iters: $iters; prec: $prec"
+
+## ---  2d-histogram (age and beta)
+
+h1 = plot(xlabel="Age [Ga]", ylabel="\\beta [{nm/a}]", xlims=(0,4), ylims=(0,400), title=plottitle, titlefontsize=8)
+histogram2d!(h1, fit_ages, fit_betas, fc=:plasma, bins=(age_hist_bins,beta_hist_bins), colorbar_title="Modeled surfaces")
+savefig(h1, "craterhistogram_age_beta.png")
+display(h1)
+
+## --- 1-d histogram, marginalized on age
+
+w = fit(Histogram,fit_ages,age_hist_bins).weights
+binwidth = abs(age_hist_bins[2]-age_hist_bins[1])
+h2 = plot(xlabel="Age [Ga]", ylabel="Percent of matching surfaces", xlims=(0,4), ylims=(0,100))
+bar!(h2, cntr(age_hist_bins), w*100/sum(w), label="", bar_width=binwidth, linealpha=0)
+plot!(h2, yticks=(0:10:100, (0:10:100).|> x-> "$x %"), title=plottitle, titlefontsize=8)
+savefig(h2, "craterhistogram_marginalized_age.pdf")
+display(h2)
+## --- Compare modelled and measured counts
+
+# Which fitted count to display
+plot_num = 1
+plot_data = fit_craters[plot_num,:]./sub_surf |> x -> CUMULATIVE ? cumul(x,SKIP_EMPTY) : x
+
+# Make the plot
+h3 = plot(xscale=:log10, yscale=:log10, xlabel="Crater Diameter [km]", fg_color_legend=:white)
+plot!(h3, xlims=(10^-3,10^3), ylims=(10^-6, 10^3))
+plot!(h3, diameters, plot_data, label="Modeled", seriestype=:scatter)
+plot!(h3, diameters, compare_count./sub_surf, label="Measured", seriestype=:scatter, shape=:star5)
+plot!(h3, ylabel = "C$(CUMULATIVE ? "umulative c" : "")rater count density ($(CUMULATIVE ? "cumulative " : "")craters / km^2)")
+plot!(h3, title="$(fit_ages[plot_num]) Ga; \\beta = $(fit_betas[plot_num]) nm a^{-1}; $plot_num of $(length(fit_ages))" )
+savefig(h3, "model-data_comparison_$(plot_num).pdf")
+display(h3)
+
+## ----

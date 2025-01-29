@@ -3,7 +3,7 @@
     using Statistics, StatsBase, Random, LaTeXStrings, Plots
     using ProgressMeter: @showprogress
     if ~ @isdefined cntr # if cntr not defined,
-        function cntr(edges) # computes bin edges from center
+        function cntr(edges) # computes bin center from edges
             return (edges[1:end-1]+edges[2:end])/2
         end
     end
@@ -43,6 +43,7 @@ HARTMANN_PROD = true
 # age defaults to 1 Ga
 # diameter_min and diameter_max defines crater diameter range
 # erosion if true, erosion effects applied (Smith et al 2008 model for erosion, beta is erosion rate, min 1e-5)
+# if secondary impact is true, use the secondary correction model
 # hartmann prod if true, uses hartman production function
 function craterfreq(age::Number=1, diameter_min::Number=0.0039,
     diameter_max::Number=1024, EROSION::Bool=false, SECONDARY::Bool=false,
@@ -66,7 +67,7 @@ function craterfreq(age::Number=1, diameter_min::Number=0.0039,
              1.12E-07, 5.21E-08, 2.43E-08, 1.13E-08, 5.28E-09, 2.47E-09, 1.15E-09,
              5.37E-10,]
 
-    # Multiplicative factor to scale chronology function (?)
+    # Multiplicative factor to scale chronology function
     N_1Ga = 3.79e-14*(exp(6.93)-1)+5.84e-4   #Michael 2013 Icarus, pg 889, eqn 3
 
     # adjusts 1 Ga crater frequencies to match chosen surface age (age)
@@ -84,10 +85,10 @@ function craterfreq(age::Number=1, diameter_min::Number=0.0039,
 
         #iterates through each crater diameter BIN to calculate crater loss due to erosion
         for i = 1:length(D)
-            # Initial conditions (RR:?)
+            # Initial conditions
             p = L = Ξ = Ψ = 0
 
-            # if not using hartmanns model, apply alt log production fcn (RR: does production mean crater occurence frequency? or infilling?)
+            # if not using hartmanns model, apply alt log production fcn
             # Set production fnctn p
             if ~HARTMANN_PROD
                if D[i] < 1.4 # for small craters
@@ -112,9 +113,9 @@ function craterfreq(age::Number=1, diameter_min::Number=0.0039,
                 Ξ = 0.42*log(D[i])-0.01
             end
 
-            # Secondary crater correction (craters within craters?)
+            # Secondary crater correction (ejecta impacts)
             # Set Psi
-            if D[i] < 1.2 && SECONDARY #RR: ?
+            if D[i] < 1.2 && SECONDARY
                 Ψ = 1 + 0.1225/(0.1225+D[i]^2)  # yields eqn 10
             else
                 Ψ = 1
@@ -126,11 +127,11 @@ function craterfreq(age::Number=1, diameter_min::Number=0.0039,
             # adjusted crater frequency
             N[i] = p/L*(1-exp(-L*age))
         end
-    else # if erosion false, simple scaling by ratio
+    else # if erosion false, simple scaling by ratio (Revisit, is redundant?)
         N = Nh .* ratio
     end
 
-    ## Crater vectors (RR: ?) of crater sizes and frequencies based on desired crater size range
+    ## Crater vectors of crater sizes and frequencies based on desired crater size range
 
     # Find closest value in D to diameter_min
     CF_idx_min = argmin(abs.(D .- diameter_min))
@@ -142,9 +143,14 @@ function craterfreq(age::Number=1, diameter_min::Number=0.0039,
     CF_crater_D = D[CF_idx_min:CF_idx_max]
     CF_crater_N = N[CF_idx_min:CF_idx_max]
 
+    # gives x bins (diameter), y bins (frequencies)
     return (CF_crater_D, CF_crater_N)
 end
 
+## End RR commenting for now
+# experiment with crater stats (does not account for erosion, rolloff)
+
+# try plotting a couple units- those frequencies vs crater freq
 ## --- Define cumul function
 
 function cumul(crater_count_density, IGNORE_EMPTY::Bool=true)
@@ -549,84 +555,3 @@ function CratModelFig7and8(;filepath::String="QuantainLandslideCraters.diam",
     return (fit_ages, fit_betas, collect(reshape(fit_craters, 8, fit_count)'), diameters, compare_crater_count, sub_surf)
 end
 
-## --- Generate Figure 2 or 5
-
-# Inputs
-min_crat_matrix=[.016, .063, .125, .178, .25, .375, .5, 1.]
-sub_area = 100
-
-# Seed the global rng
-Random.seed!(reinterpret(Int,time()))
-
-# Run the model
-(age_matrix, age_avg, age_std, beta_avg, beta_std, age_med, age_25, age_75) =
-    CratModelFig2and5(min_crat_matrix=min_crat_matrix, sub_area=sub_area)
-
-f = plot(xlabel="Minimum crater diameter (m)", ylabel="Median calculated age (Ga)",
-    fg_color_legend=:white, legend=:bottomright)
-for i = 1:length(age_matrix)
-    med = age_med[i,:]
-    quant25 = med .- age_25[i,:]
-    quant75 = age_75[i,:] .- med
-    plot!(f, min_crat_matrix.*1000, med, yerror=(quant25, quant75),
-        seriestype=:scatter, markershape=:auto, mscolor=:auto,
-        label="$(age_matrix[i])")
-end
-plot!(f, title="$(sub_area) km^2", xscale=:log10, ylims=(0,4), xlims=(10,1200))
-plot!(f, xticks=([16,63,125,250,500,1000],["16","63","125","250","500","1000"]))
-savefig(f, "age_diameter_scaling.pdf")
-display(f)
-
-## --- Generate Figure 7 or
-
-filepath = "QuantainLandslideCraters.diam"
-CUMULATIVE = false
-SKIP_EMPTY = true
-iters = 100
-prec = 0.25
-
-# Seed the global rng
-Random.seed!(reinterpret(Int,time()))
-
-(fit_ages, fit_betas, fit_craters, diameters, compare_count, sub_surf) =
-    CratModelFig7and8(filepath=filepath, CUMULATIVE=CUMULATIVE, SKIP_EMPTY=SKIP_EMPTY,
-                      iters=iters, prec=prec)
-
-age_hist_bins = 0:0.5:4
-beta_hist_bins = 0:50:400
-diameter_min = minimum(diameters)
-plottitle = "$filepath; $sub_surf km^2; Dmin: $diameter_min km;$(CUMULATIVE ? "" : " not") cumulative; iters: $iters; prec: $prec"
-
-## ---  2d-histogram (age and beta)
-
-h1 = plot(xlabel="Age [Ga]", ylabel="\\beta [{nm/a}]", xlims=(0,4), ylims=(0,400), title=plottitle, titlefontsize=8)
-histogram2d!(h1, fit_ages, fit_betas, fc=:plasma, bins=(age_hist_bins,beta_hist_bins), colorbar_title="Modeled surfaces")
-savefig(h1, "craterhistogram_age_beta.png")
-display(h1)
-
-## --- 1-d histogram, marginalized on age
-
-w = fit(Histogram,fit_ages,age_hist_bins).weights
-binwidth = abs(age_hist_bins[2]-age_hist_bins[1])
-h2 = plot(xlabel="Age [Ga]", ylabel="Percent of matching surfaces", xlims=(0,4), ylims=(0,100))
-bar!(h2, cntr(age_hist_bins), w*100/sum(w), label="", bar_width=binwidth, linealpha=0)
-plot!(h2, yticks=(0:10:100, (0:10:100).|> x-> "$x %"), title=plottitle, titlefontsize=8)
-savefig(h2, "craterhistogram_marginalized_age.pdf")
-display(h2)
-## --- Compare modelled and measured counts
-
-# Which fitted count to display
-plot_num = 1
-plot_data = fit_craters[plot_num,:]./sub_surf |> x -> CUMULATIVE ? cumul(x,SKIP_EMPTY) : x
-
-# Make the plot
-h3 = plot(xscale=:log10, yscale=:log10, xlabel="Crater Diameter [km]", fg_color_legend=:white)
-plot!(h3, xlims=(10^-3,10^3), ylims=(10^-6, 10^3))
-plot!(h3, diameters, plot_data, label="Modeled", seriestype=:scatter)
-plot!(h3, diameters, compare_count./sub_surf, label="Measured", seriestype=:scatter, shape=:star5)
-plot!(h3, ylabel = "C$(CUMULATIVE ? "umulative c" : "")rater count density ($(CUMULATIVE ? "cumulative " : "")craters / km^2)")
-plot!(h3, title="$(fit_ages[plot_num]) Ga; \\beta = $(fit_betas[plot_num]) nm a^{-1}; $plot_num of $(length(fit_ages))" )
-savefig(h3, "model-data_comparison_$(plot_num).pdf")
-display(h3)
-
-## ----
