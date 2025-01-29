@@ -4,28 +4,29 @@ geol = importdataset("geology_combined.csv", importas=:Tuple)
 crat = importdataset("craters.csv", importas=:Tuple)
 
 ## --- Plot overall histogram as a check
-histogram(log10.(crat.DiamKM), # this is log 2 though right?
-    framestyle=:box,
-    yscale=:log10, 
+histogram(log10.(crat.DiamKM), # creates a histogram of crater diameters on log scale (base 10)
+    framestyle=:box, # encloses axes
+    yscale=:log10, # sets y axis to log 10 scale
     xlabel="Log10 crater diameter",
     ylabel="N",
-    label="",
+    label="", # removes legend label
 )
 
 ## -- try calculating an isochron
 
 unit = "AHi"
-t = crat.Unit .== unit
-step = 0.1
-diam_binedges = 0:step:log2(100)
-diam_bincenters = (diam_binedges[1:end-1]+diam_binedges[2:end])/2
-N = histcounts(log2.(crat.DiamKM[t]), diam_binedges)
-density = N ./ geol.Area[findfirst(geol.Unit.==unit)] ./ step
+t = crat.Unit .== unit # now extracts only craters in unit AHi (boolean mask)
+step = 0.1 # defines bin width in log base 2
+diam_binedges = 0:step:log2(100) # bin edges from log2(0) to log2(100)
+diam_bincenters = (diam_binedges[1:end-1]+diam_binedges[2:end])/2 # computes midpoint of each bin
+N = histcounts(log2.(crat.DiamKM[t]), diam_binedges) #converts filtered crater diameters to log base 2, counts how many craters in each bin
+density = N ./ geol.Area[findfirst(geol.Unit.==unit)] ./ step # normalizes counts by area of unit AHi, finds index where unit equals AHi and grabs area
+# further normalize with bin width step = 0.1
 
 # Plot crater density vs diameter
-scatter(2.0.^diam_bincenters, density, 
+scatter(2.0.^diam_bincenters, density, # reverses log2(x) of bincenters
     framestyle=:box,
-    yscale=:log10, 
+    yscale=:log10, # log scaling
     xscale=:log10,
     label="",
     ylabel="Crater density [Craters/km^2]",
@@ -34,8 +35,8 @@ scatter(2.0.^diam_bincenters, density,
 
 ## -- Try plotting isochrons for each unit
 
-for unit in geol.Unit
-    t = crat.Unit .== unit
+for unit in geol.Unit # loops through each unit
+    t = crat.Unit .== unit # selects all craters for that specific unit
     step = 0.1
     diam_binedges = 0:step:log2(100)
     diam_bincenters = (diam_binedges[1:end-1]+diam_binedges[2:end])/2
@@ -43,7 +44,7 @@ for unit in geol.Unit
     density = N ./ geol.Area[findfirst(geol.Unit.==unit)] ./ step
 
     # Plot crater density vs diameter
-    density[density.<=0] .= NaN
+    density[density.<=0] .= NaN # replaces 0 or negative densities with NaN to avoid plotting/log errors
     h = scatter(2.0.^diam_bincenters, density, 
         framestyle=:box,
         yscale=:log10, 

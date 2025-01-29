@@ -2,16 +2,16 @@
 
     using Statistics, StatsBase, Random, LaTeXStrings, Plots
     using ProgressMeter: @showprogress
-    if ~ @isdefined cntr
-        function cntr(edges)
+    if ~ @isdefined cntr # if cntr not defined,
+        function cntr(edges) # computes bin edges from center
             return (edges[1:end-1]+edges[2:end])/2
         end
     end
-    function nextnicenumber(x::Number)
+    function nextnicenumber(x::Number) # finds next nice number greater or equal to x
         nicenumber = [1,1.2,1.25,1.4,1.5,1.6,1.75,1.8,2,2.5,3,4,5,6,7.5,8,9,10,]
         # nicedivisor = [5, 6,   5,  7,  5,  4,   7,  6,4,  5,3,4,5,6,  5,4,3, 5,]
-        base = 10^floor(log10(x))
-        i = findfirst(nicenumber .>= x/base)
+        base = 10^floor(log10(x)) # takes log base 10 of x (power of 10 closest to x), extracts integer part of the exponent, reconstructs nearest power of 10 <= x
+        i = findfirst(nicenumber .>= x/base) # scale x down by dividing by base, returns index of that number
         return nicenumber[i]*base
     end
 
@@ -40,6 +40,10 @@ SECONDARY = false
 Beta = 1e-5
 HARTMANN_PROD = true
 """
+# age defaults to 1 Ga
+# diameter_min and diameter_max defines crater diameter range
+# erosion if true, erosion effects applied (Smith et al 2008 model for erosion, beta is erosion rate, min 1e-5)
+# hartmann prod if true, uses hartman production function
 function craterfreq(age::Number=1, diameter_min::Number=0.0039,
     diameter_max::Number=1024, EROSION::Bool=false, SECONDARY::Bool=false,
     Beta::Number=1e-5; HARTMANN_PROD::Bool=true)
@@ -47,12 +51,14 @@ function craterfreq(age::Number=1, diameter_min::Number=0.0039,
     ## Calculates (with erosion) or loads crater sizes and frequencies
 
     # Crater diameter bins, Michael Icarus 2013
+    # predefined logarithmically to cover wide range of diameters
     D = [0.00391, 0.00553, 0.00782, 0.0111, 0.01565, 0.0221, 0.0313, 0.0442,
             0.06251, 0.0887, 0.125, 0.177, 0.25, 0.354, 0.5, 0.7075, 1., 1.415,
             2., 2.83, 4., 5.66, 8.05, 11.32, 16.05, 22.63, 32.05, 45.3, 64.05,
             90.6, 128.05, 181.1, 256.05, 362.1, 512.05, 724.1,]  #km
 
     # Crater frequencies for 1 Ga surface, Michael Icarus 2013
+    # Nh[i] is number of craters per km^2 for each diameter bin D[i]
     Nh = [4.04E+03, 2.33E+03, 1.14E+03, 4.58E+02, 1.91E+02, 6.66E+01, 2.40E+01,
              9.44E+00, 3.30E+00, 1.22E+00, 4.37E-01, 1.47E-01, 4.70E-02, 1.38E-02,
              4.02E-03, 1.15E-03, 3.08E-04, 1.28E-04, 6.85E-05, 3.67E-05, 1.98E-05,
@@ -60,11 +66,15 @@ function craterfreq(age::Number=1, diameter_min::Number=0.0039,
              1.12E-07, 5.21E-08, 2.43E-08, 1.13E-08, 5.28E-09, 2.47E-09, 1.15E-09,
              5.37E-10,]
 
+    # Multiplicative factor to scale chronology function (?)
     N_1Ga = 3.79e-14*(exp(6.93)-1)+5.84e-4   #Michael 2013 Icarus, pg 889, eqn 3
+
+    # adjusts 1 Ga crater frequencies to match chosen surface age (age)
     ratio = (3.79e-14*(exp(6.93*age)-1)+5.84e-4*age)/N_1Ga  #ratio to 1 Ga
 
+    # if Erosion is true
     if EROSION
-        # Allocate array for results
+        # empty array for adjusted crater frequencies
         N = Array{Float64}(undef, size(Nh))
 
         # Set minimum erosion rate
@@ -72,50 +82,55 @@ function craterfreq(age::Number=1, diameter_min::Number=0.0039,
             Beta = 1e-5
         end
 
+        #iterates through each crater diameter BIN to calculate crater loss due to erosion
         for i = 1:length(D)
-            # Initial conditions
+            # Initial conditions (RR:?)
             p = L = Ξ = Ψ = 0
 
+            # if not using hartmanns model, apply alt log production fcn (RR: does production mean crater occurence frequency? or infilling?)
             # Set production fnctn p
             if ~HARTMANN_PROD
-               if D[i] < 1.4
+               if D[i] < 1.4 # for small craters
                     p = 0.0035*(0.13*log(D[i])+0.83)/(D[i]^3.3)
-                else
+                else # for medium craters 
                     if D[i] <= 48.1
                         p = 10^(-1.8*log10(D[i])-2.59)
-                    else
+                    else # large craters
                         p = 10^(-2.2*log10(D[i])-1.89)
                     end
                 end
                 p = p * 0.29
-            else
+            else # otherwise, if hartmanns is true, scales Nh[i] using age ratio
                 p = Nh[i]*ratio/age
             end
 
+            # Compute Depth Correction
             # Set Xi
             if D[i] < 5.8
-                Ξ = 0.2*D[i]
-            else
+                Ξ = 0.2*D[i] # correction factor, accounts for depth-dependent crater erosion
+            else # large craters erode differently than small ones
                 Ξ = 0.42*log(D[i])-0.01
             end
 
+            # Secondary crater correction (craters within craters?)
             # Set Psi
-            if D[i] < 1.2 && SECONDARY
+            if D[i] < 1.2 && SECONDARY #RR: ?
                 Ψ = 1 + 0.1225/(0.1225+D[i]^2)  # yields eqn 10
             else
                 Ψ = 1
             end
 
-            # lambda: crater loss fnctn
-            L = Ψ*Beta/(1000*Ξ)
+            # lambda: crater loss fnctn (rate of crater removal due to erosion (erosion rate beta))
+            L = Ψ*Beta/(1000*Ξ) 
 
+            # adjusted crater frequency
             N[i] = p/L*(1-exp(-L*age))
         end
-    else
+    else # if erosion false, simple scaling by ratio
         N = Nh .* ratio
     end
 
-    ## Crater vectors of crater sizes and frequencies based on desired crater size range
+    ## Crater vectors (RR: ?) of crater sizes and frequencies based on desired crater size range
 
     # Find closest value in D to diameter_min
     CF_idx_min = argmin(abs.(D .- diameter_min))
