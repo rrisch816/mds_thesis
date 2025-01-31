@@ -65,3 +65,13 @@ include("CraterModel.jl")
 
 (CF_crater_D, CF_crater_N) = craterfreq(4.5, 0.02, 512, true, false, 1e4)
 plot!(h, CF_crater_D, CF_crater_N)
+
+# try messing with bins
+
+# Try with more units, see what age erosion combos work
+# Reference curve vs this new hump
+
+# Why does Michael paper curve not have humps
+
+using CraterStats
+# I can't find craterstats documentation, how do i use this?

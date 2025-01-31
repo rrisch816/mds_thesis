@@ -171,6 +171,7 @@ end
 
 ## --- Define craterfit function
 
+# repalce with MCMC?
 function craterfit(diameters, count_dens, weight, CUMULATIVE::Bool,
     SKIP_EMPTY::Bool, FIT_EROSION::Bool=false, SECONDARY::Bool=false)
 
