@@ -38,7 +38,7 @@ end
 ## -- try calculating a particular isochron
 
 # unit = "AHi"
-unit = "mNh"
+unit = "HNt"
 t = crat.Unit .== unit # now extracts only craters in unit AHi (boolean mask)
 step = 0.1 # defines bin width in log base 2
 diam_binedges = 0:step:log2(512) # bin edges from log2(0) to log2(100)
@@ -58,20 +58,25 @@ h = scatter(2.0.^diam_bincenters, density, # reverses log2(x) of bincenters
     xlabel = "Crater diameter [km]",
 )
 
+
 ## --- Plot this against a calulated isochron
 
 # To get craterfreq function
 include("CraterModel.jl")
 
-(CF_crater_D, CF_crater_N) = craterfreq(4.5, 0.02, 512, true, false, 1e4)
+(CF_crater_D, CF_crater_N) = craterfreq(3.6, 0.2, 512, true, false, 1e1)
 plot!(h, CF_crater_D, CF_crater_N)
+savefig(h, "$unit fitted.pdf")
+display(h)
 
-# try messing with bins
+# try messing with bins! Not randomly, needs science
 
-# Try with more units, see what age erosion combos work
+# Try with more units, see what age erosion combos work (always old and much erosion?)
+# Try units old medium young, late amazonian too
+
 # Reference curve vs this new hump
-
 # Why does Michael paper curve not have humps
 
-using CraterStats
-# I can't find craterstats documentation, how do i use this?
+# Mess around with craterstats + IDLE
+
+# 1/31: What do curves actually mean? Sorta fits with massive age, big erosion
