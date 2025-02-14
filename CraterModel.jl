@@ -17,31 +17,60 @@
 
 ## --- Add MCMC inversion function!
 
-    function crater_mcmc(diam, density, density_sigma; nsteps=100000, burnin=1000, age=3.5, erosion=1e1)
+    function crater_mcmc(diam, density, density_sigma; 
+            nsteps=100000, 
+            burnin=nsteps, 
+            age=3.5, 
+            erosion=1.0,
+            age_prior = Uniform(0, 4.567),
+            erosion_logprior = Normal(0,4),
+        )
+
         # Allocate variables to record stationary distribution
+        acceptancedist = falses(nsteps)
         lldist = zeros(nsteps)
         agedist = zeros(nsteps)
         erosiondist = zeros(nsteps)
+
+        σj_agedist = zeros(nsteps)
+        σj_erosiondist = zeros(nsteps)
 
         # Initial proposal
         ageₚ = age
         erosionₚ = erosion
         densityₚ = copy(density)
-        llₚ = ll = crater_ll!(densityₚ, diam, density, density_sigma, age, erosion)
+        llₚ = ll = crater_ll!(densityₚ, diam, density, density_sigma, age, erosion) + logpdf(age_prior, age) + logpdf(erosion_logprior, log(erosion))
 
+        # Jumping distributions
+        σj_age = 0.04
+        σj_logerosion = log(2)
+
+        # Run Markov chain!
         for i in 1:nsteps+burnin
             # Make new proposal based on last accepted propsoal
-            erosionₚ = exp(log(erosion) + rand(Normal(0,1)))
-            ageₚ = age + rand(Normal(0, 0.05))
+            r = rand(1:2)
+            if r == 1 
+                ageₚ = age + rand(Normal(0, σj_age))
+            elseif r == 2
+                erosionₚ = exp(log(erosion) + rand(Normal(0,σj_logerosion)))
+            end
 
             # Calculate log likelihood of new proposal
-            llₚ = crater_ll!(densityₚ, diam, density, density_sigma, ageₚ, erosionₚ)
+            llₚ = crater_ll!(densityₚ, diam, density, density_sigma, ageₚ, erosionₚ) + logpdf(age_prior, ageₚ) + logpdf(erosion_logprior, log(erosionₚ))
             
+            # Accept or reject proposal
             if log(rand()) < (llₚ-ll)
-                # Accept proposal!
+                # Update jumping distributions
+                ageₚ ≠ age && (σj_age = 2.5 * abs(ageₚ - age))
+                erosionₚ ≠ erosion && (σj_logerosion = 2.5 * abs(log(erosionₚ)-log(erosion)))
+
+                # Update accepted values
                 ll = llₚ
                 age = ageₚ
                 erosion = erosionₚ
+                if i > burnin
+                    acceptancedist[i-burnin] = true
+                end
             end
 
             # Record current accepted result
@@ -49,16 +78,26 @@
                 lldist[i-burnin] = ll
                 agedist[i-burnin] = age
                 erosiondist[i-burnin] = erosion
+
+                σj_agedist[i-burnin] = σj_age
+                σj_erosiondist[i-burnin] = σj_logerosion
             end
         end
+        @info "mean acceptance: $(mean(acceptancedist))\n"*
+              "  σj_age: $(round(mean(σj_agedist), sigdigits=6))\n"*
+              "  σj_logerosion: $(round(mean(σj_erosiondist), sigdigits=6))\n"
 
-        return lldist, agedist, erosiondist
+        return acceptancedist, lldist, agedist, erosiondist
     end
 
     function crater_ll!(densityₚ, diam, density, density_sigma, age, erosion)
         diam_cf, density_cf = craterfreq(age, erosion)
-        # Possibly switch to interpolating in log space?
+        # Interpolate, in log space
+        density_cf .= max.(density_cf, 0.0)
+        density_cf .= log.(density_cf)
         linterp1!(densityₚ, diam_cf, density_cf, diam)
+        densityₚ .= exp.(densityₚ)
+        # Calculate log likelihood
         ll = 0.0
         for i in eachindex(densityₚ, density, density_sigma)
             if !isnan(density[i])

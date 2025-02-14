@@ -12,40 +12,83 @@ histogram(log10.(crat.DiamKM), # creates a histogram of crater diameters on log 
     label="", # removes legend label
 )
 
-## -- Try plotting isochrons for each unit
+## -- Try plotting and fitting isochrons for each unit
 
-for unit in geol.Unit # loops through each unit
+# Load craterfreq and mcmc functions
+include("CraterModel.jl")
+
+# Tuple to store results
+nunits = length(geol.Unit)
+ds = (;geol...,
+    crater_count = fill(NaN, nunits),
+    model_age = fill(NaN, nunits),
+    model_age_sigma = fill(NaN, nunits),
+    model_erosion = fill(NaN, nunits),
+    model_erosion_sigma = fill(NaN, nunits),
+)
+
+step = 0.1
+logdiam_binedges = 0:step:log2(1000)
+logdiam_bincenters = (logdiam_binedges[1:end-1]+logdiam_binedges[2:end])/2
+diam_bincenters = exp2.(logdiam_bincenters)
+
+for i in eachindex(ds.Unit) # loops through each unit
+    unit = ds.Unit[i]
     t = crat.Unit .== unit # selects all craters for that specific unit
-    step = 0.1
-    diam_binedges = 0:step:log2(1000)
-    diam_bincenters = (diam_binedges[1:end-1]+diam_binedges[2:end])/2
-    N = histcounts(log2.(crat.DiamKM[t]), diam_binedges)
-    density = N ./ geol.Area[findfirst(geol.Unit.==unit)] ./ step
+    ds.crater_count[i] = count(t)
+    if count(t) > 1000 # Only consider units with more than 1000 counted craters
+        N = histcounts(log2.(crat.DiamKM[t]), logdiam_binedges)
+        density = N ./ ds.Area[findfirst(ds.Unit.==unit)] ./ step
+        density_sigma = sqrt.(N) ./ ds.Area[findfirst(ds.Unit.==unit)] ./ step 
 
-    # Plot crater density vs diameter
-    density[density.<=0] .= NaN # replaces 0 or negative densities with NaN to avoid plotting/log errors
-    h = scatter(2.0.^diam_bincenters, density, 
-        framestyle=:box,
-        yscale=:log10, 
-        xscale=:log10,
-        label="",
-        ylabel="Crater density [Craters/km^2]",
-        xlabel = "Crater diameter [km]",
-    )
+        # Plot crater density vs diameter
+        density[density.<=0] .= NaN # replaces 0 or negative densities with NaN to avoid plotting/log errors
+        h = scatter(diam_bincenters, density, 
+            yerror = 2*density_sigma,
+            framestyle=:box,
+            yscale=:log10, 
+            xscale=:log10,
+            label="Observed densities (N = $(count(t)))",
+            ylabel="Crater density [Craters/km^2]",
+            xlabel = "Crater diameter [km]",
+            title = ds.UnitDesc[i]
+        )
 
-    # diam = 2.0.^diam_bincenters
+        @info "Runing MCMC on unit $unit:"
+        ageest = (ds.AgeMin[i]+ds.AgeMax[i])/2
+        acceptancedist, lldist, agedist, erosiondist = crater_mcmc(diam_bincenters, density, density_sigma, age=ageest)
+        
+        ds.model_age[i] = age = mean(agedist)
+        ds.model_age_sigma[i] = age_sigma = std(agedist)
+        ds.model_erosion[i] = erosion = mean(erosiondist)
+        ds.model_erosion_sigma[i] = erosion_sigma = std(erosiondist)
 
-    # lldist, agedist, erosiondist = crater_mcmc(diam, density, density_sigma)
-    # age = mean(agedist)
-    # age_sigma = std(agedist)
-    # erosion = mean(erosiondist)
-    # erosion_sigma = std(erosiondist)
+        diam_cf, density_cf = craterfreq(age, erosion)
+        plot!(h, diam_cf, density_cf, 
+            label = "age=$(round(age, sigdigits=6)), erosion=$(round(erosion, sigdigits=6))",
+            legend = :bottomleft,
+            ylims = nanextrema(density_cf),
+        )
+        savefig(h, "$unit isochron.pdf")
 
-    # diam_cf, density_cf = craterfreq(age, erosion)
-    # plot!(h, diam_cf, density_cf, label ="age=$age, erosion=$erosion")
+        ha = plot(movmean(acceptancedist,100), ylims=(0,1), 
+            ylabel="Acceptance (mean of 100)", 
+            title = ds.UnitDesc[i],
+            framestyle=:box,
+            label="", 
+        )
+        savefig(ha, "$unit acceptancedist.pdf")
 
-    savefig(h, "$unit isochron.pdf")
+        hl = plot(lldist,
+            ylabel="Log likelihood", 
+            title = ds.UnitDesc[i],
+            framestyle=:box,
+            label="", 
+        )
+        savefig(hl, "$unit lldist.pdf")
+    end
 end
+exportdataset(ds, "results.csv")
 
 ## -- try calculating a particular isochron
 
@@ -53,16 +96,17 @@ end
 unit = "HNt"
 t = crat.Unit .== unit # now extracts only craters in unit AHi (boolean mask)
 step = 0.1 # defines bin width in log base 2
-diam_binedges = 0:step:log2(512) # bin edges from log2(0) to log2(100)
-diam_bincenters = (diam_binedges[1:end-1]+diam_binedges[2:end])/2 # computes midpoint of each bin
-N = histcounts(log2.(crat.DiamKM[t]), diam_binedges) #converts filtered crater diameters to log base 2, counts how many craters in each bin
+logdiam_binedges = 0:step:log2(512) # bin edges from log2(0) to log2(100)
+logdiam_bincenters = (logdiam_binedges[1:end-1]+logdiam_binedges[2:end])/2 # computes midpoint of each bin
+diam_bincenters = exp2.(logdiam_bincenters)
+N = histcounts(log2.(crat.DiamKM[t]), logdiam_binedges) #converts filtered crater diameters to log base 2, counts how many craters in each bin
 density = N ./ geol.Area[findfirst(geol.Unit.==unit)] ./ step # normalizes counts by area of unit AHi, finds index where unit equals AHi and grabs area
 density_sigma = sqrt.(N) ./ geol.Area[findfirst(geol.Unit.==unit)] ./ step 
 # further normalize with bin width step = 0.1
 density[density.==0] .= NaN
 
 # Plot crater density vs diameter
-h = scatter(2.0.^diam_bincenters, density, # reverses log2(x) of bincenters
+h = scatter(diam_bincenters, density,
     yerror=2*density_sigma,
     ylims=nanextrema(density),
     framestyle=:box,
@@ -75,9 +119,6 @@ h = scatter(2.0.^diam_bincenters, density, # reverses log2(x) of bincenters
 
 ## --- Plot this against a calulated isochron
 
-# To get craterfreq function
-include("CraterModel.jl")
-
 age = 3.6
 erosion = 1e1
 (CF_crater_D, CF_crater_N) = craterfreq(age, erosion)
@@ -87,8 +128,7 @@ display(h)
 
 ## --- MCMC!
 
-diam = 2.0.^diam_bincenters
-lldist, agedist, erosiondist = crater_mcmc(diam, density, density_sigma)
+acceptancedist, lldist, agedist, erosiondist = crater_mcmc(diam_bincenters, density, density_sigma)
 
 plot(lldist)
 plot(agedist)
@@ -101,7 +141,7 @@ erosion = mean(erosiondist)
 erosion_sigma = std(erosiondist)
 
 # Plot results!
-h = scatter(2.0.^diam_bincenters, density, # reverses log2(x) of bincenters
+h = scatter(2.0.^logdiam_bincenters, density, # reverses log2(x) of bincenters
     yerror=2*density_sigma,
     ylims=nanextrema(density),
     framestyle=:box,

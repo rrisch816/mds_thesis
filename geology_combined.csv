@@ -1,45 +1,45 @@
-Unit,UnitDesc,Area
-AHi,Amazonian and Hesperian impact unit,7.913061843506499e6
-AHtu,Amazonian and Hesperian transition undivided unit,2.2004018669434e6
-AHv,Amazonian and Hesperian volcanic,1.32139997668457e7
-ANa,Amazonian and Noachian apron unit,373841.88061540003
-Aa,Amazonian apron unit,998728.2539061999
-Ap,Amazonian polar unit,221101.3125
-Apu,Amazonian polar undivided unit,2.0053956425781e6
-Av,Amazonian volcanic unit,2.1024940637207003e6
-Ave,Amazonian volcanic edifice,824778.1923827999
-HNb,Hesperian and Noachian basin unit,596205.765625
-HNhu,Hesperian and Noachian highland undivided unit,1.0067316372070999e6
-HNt,Hesperian and Noachian transition unit,2.8894816066891993e6
-Hp,Hesperian polar unit,1.22156259375e6
-Hpe,Hesperian polar edifice unit,259771.8105467
-Hpu,Hesperian polar undivided unit,34509.9140625
-Ht,Hesperian transition unit,910149.2680665
-Hto,Hesperian transition outflow unit,1.2890543728028e6
-Htu,Hesperian transition undivided unit,741194.0717775
-Hve,Hesperian volcanic edifice unit,382780.2495119
-Nhe,Noachian highland edifice unit,220604.23559559998
-Nhu,Noachian highland undivided unit,1.610477508789e6
-Nve,Noachian volcanic edifice unit,206573.6931153
-eAb,Early Amazonian basin unit,545426.5703125
-eHb,Early Hesperian basin unit,395406.72851559997
-eHh,Early Hesperian highland unit,1.8056592451171e6
-eHt,Early Hesperian transition unit,3.6880182221680004e6
-eHv,Early Hesperian volcanic unit,5.791988775878599e6
-eNh,Early Noachian highland unit,1.4599337820923397e7
-eNhm,Early Noachian highland massif unit,1.9444527846679003e6
-lAa,Late Amazonian apron unit,285947.15820309997
-lApc,Late Amazonian polar cap unit,700535.4921875
-lApd,Late Amazonian polar dunes unit,301048.44726559997
-lAv,Late Amazonian volcanic unit,3.4095626103514e6
-lAvf,Late Amazonian volcanic field unit,312533.4482423
-lHb,Late Hesperian basin unit,912197.8125
-lHl,Late Hesperian lowland unit,1.60208180527343e7
-lHt,Late Hesperian transition unit,2.3450226958009005e6
-lHv,Late Hesperian volcanic unit,2.3910232021484002e6
-lHvf,Late Hesperian volcanic field unit,440897.1328124
-lNh,Late Noachian highland unit,8.4190686892092e6
-lNv,Late Noachian volcanic unit,2.2263511142578e6
-mAl,Middle Amazonian lowland unit,2.9968765511474e6
-mNh,Middle Noachian highland unit,3.23134881878662e7
-mNhm,Middle Noachian highland massif unit,1.8731614790038e6
+Unit,UnitDesc,Area,AgeMin,AgeMax
+AHi,Amazonian and Hesperian impact unit,7.913061843506499e6,0,3.7
+AHtu,Amazonian and Hesperian transition undivided unit,2.2004018669434e6,0,3.7
+AHv,Amazonian and Hesperian volcanic,1.32139997668457e7,0,3.7
+ANa,Amazonian and Noachian apron unit,373841.8806154,0,4.1
+Aa,Amazonian apron unit,998728.2539062,0,3
+Ap,Amazonian polar unit,221101.3125,0,3
+Apu,Amazonian polar undivided unit,2.0053956425781e6,0,3
+Av,Amazonian volcanic unit,2.1024940637207003e6,0,3
+Ave,Amazonian volcanic edifice,824778.1923828,0,3
+HNb,Hesperian and Noachian basin unit,596205.765625,3,4.1
+HNhu,Hesperian and Noachian highland undivided unit,1.0067316372070999e6,3,4.1
+HNt,Hesperian and Noachian transition unit,2.8894816066891993e6,3,4.1
+Hp,Hesperian polar unit,1.22156259375e6,3,3.7
+Hpe,Hesperian polar edifice unit,259771.8105467,3,3.7
+Hpu,Hesperian polar undivided unit,34509.9140625,3,3.7
+Ht,Hesperian transition unit,910149.2680665,3,3.7
+Hto,Hesperian transition outflow unit,1.2890543728028e6,3,3.7
+Htu,Hesperian transition undivided unit,741194.0717775,3,3.7
+Hve,Hesperian volcanic edifice unit,382780.2495119,3,3.7
+Nhe,Noachian highland edifice unit,220604.2355956,3.7,4.1
+Nhu,Noachian highland undivided unit,1.610477508789e6,3.7,4.1
+Nve,Noachian volcanic edifice unit,206573.6931153,3.7,4.1
+eAb,Early Amazonian basin unit,545426.5703125,0,3
+eHb,Early Hesperian basin unit,395406.7285156,3.4,3.7
+eHh,Early Hesperian highland unit,1.8056592451171e6,3.4,3.7
+eHt,Early Hesperian transition unit,3.6880182221680004e6,3.4,3.7
+eHv,Early Hesperian volcanic unit,5.791988775878599e6,3.4,3.7
+eNh,Early Noachian highland unit,1.4599337820923397e7,3.95,4.1
+eNhm,Early Noachian highland massif unit,1.9444527846679003e6,3.95,4.1
+lAa,Late Amazonian apron unit,285947.1582031,0,3
+lApc,Late Amazonian polar cap unit,700535.4921875,0,3
+lApd,Late Amazonian polar dunes unit,301048.4472656,0,3
+lAv,Late Amazonian volcanic unit,3.4095626103514e6,0,3
+lAvf,Late Amazonian volcanic field unit,312533.4482423,0,3
+lHb,Late Hesperian basin unit,912197.8125,3,3.4
+lHl,Late Hesperian lowland unit,1.60208180527343e7,3,3.4
+lHt,Late Hesperian transition unit,2.3450226958009005e6,3,3.4
+lHv,Late Hesperian volcanic unit,2.3910232021484002e6,3,3.4
+lHvf,Late Hesperian volcanic field unit,440897.1328124,3,3.4
+lNh,Late Noachian highland unit,8.4190686892092e6,3.7,3.85
+lNv,Late Noachian volcanic unit,2.2263511142578e6,3.7,3.85
+mAl,Middle Amazonian lowland unit,2.9968765511474e6,0,3
+mNh,Middle Noachian highland unit,3.23134881878662e7,3.85,3.95
+mNhm,Middle Noachian highland massif unit,1.8731614790038e6,3.85,3.95
