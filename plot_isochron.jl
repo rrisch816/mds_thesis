@@ -1,4 +1,4 @@
-using StatGeochem, Plots
+using StatGeochem, Plots, Distributions
 
 geol = importdataset("geology_combined.csv", importas=:Tuple)
 crat = importdataset("craters.csv", importas=:Tuple)
@@ -32,6 +32,18 @@ for unit in geol.Unit # loops through each unit
         ylabel="Crater density [Craters/km^2]",
         xlabel = "Crater diameter [km]",
     )
+
+    # diam = 2.0.^diam_bincenters
+
+    # lldist, agedist, erosiondist = crater_mcmc(diam, density, density_sigma)
+    # age = mean(agedist)
+    # age_sigma = std(agedist)
+    # erosion = mean(erosiondist)
+    # erosion_sigma = std(erosiondist)
+
+    # diam_cf, density_cf = craterfreq(age, erosion)
+    # plot!(h, diam_cf, density_cf, label ="age=$age, erosion=$erosion")
+
     savefig(h, "$unit isochron.pdf")
 end
 
@@ -45,11 +57,14 @@ diam_binedges = 0:step:log2(512) # bin edges from log2(0) to log2(100)
 diam_bincenters = (diam_binedges[1:end-1]+diam_binedges[2:end])/2 # computes midpoint of each bin
 N = histcounts(log2.(crat.DiamKM[t]), diam_binedges) #converts filtered crater diameters to log base 2, counts how many craters in each bin
 density = N ./ geol.Area[findfirst(geol.Unit.==unit)] ./ step # normalizes counts by area of unit AHi, finds index where unit equals AHi and grabs area
+density_sigma = sqrt.(N) ./ geol.Area[findfirst(geol.Unit.==unit)] ./ step 
 # further normalize with bin width step = 0.1
 density[density.==0] .= NaN
 
 # Plot crater density vs diameter
 h = scatter(2.0.^diam_bincenters, density, # reverses log2(x) of bincenters
+    yerror=2*density_sigma,
+    ylims=nanextrema(density),
     framestyle=:box,
     yscale=:log10, # log scaling
     xscale=:log10,
@@ -58,16 +73,50 @@ h = scatter(2.0.^diam_bincenters, density, # reverses log2(x) of bincenters
     xlabel = "Crater diameter [km]",
 )
 
-
 ## --- Plot this against a calulated isochron
 
 # To get craterfreq function
 include("CraterModel.jl")
 
-(CF_crater_D, CF_crater_N) = craterfreq(3.6, 0.2, 512, true, false, 1e1)
-plot!(h, CF_crater_D, CF_crater_N)
+age = 3.6
+erosion = 1e1
+(CF_crater_D, CF_crater_N) = craterfreq(age, erosion)
+plot!(h, CF_crater_D, CF_crater_N, label ="age=$age, erosion=$erosion")
 savefig(h, "$unit fitted.pdf")
 display(h)
+
+## --- MCMC!
+
+diam = 2.0.^diam_bincenters
+lldist, agedist, erosiondist = crater_mcmc(diam, density, density_sigma)
+
+plot(lldist)
+plot(agedist)
+plot(erosiondist)
+
+# Get results from stationary distribution
+age = mean(agedist)
+age_sigma = std(agedist)
+erosion = mean(erosiondist)
+erosion_sigma = std(erosiondist)
+
+# Plot results!
+h = scatter(2.0.^diam_bincenters, density, # reverses log2(x) of bincenters
+    yerror=2*density_sigma,
+    ylims=nanextrema(density),
+    framestyle=:box,
+    yscale=:log10, # log scaling
+    xscale=:log10,
+    label="",
+    ylabel="Crater density [Craters/km^2]",
+    xlabel = "Crater diameter [km]",
+)
+diam_cf, density_cf = craterfreq(age, erosion)
+plot!(h, diam_cf, density_cf, label ="age=$age, erosion=$erosion")
+savefig(h, "$unit fitted.pdf")
+display(h)
+
+## ----
 
 # try messing with bins! Not randomly, needs science
 

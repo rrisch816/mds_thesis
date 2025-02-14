@@ -15,13 +15,70 @@
         return nicenumber[i]*base
     end
 
+## --- Add MCMC inversion function!
+
+    function crater_mcmc(diam, density, density_sigma; nsteps=100000, burnin=1000, age=3.5, erosion=1e1)
+        # Allocate variables to record stationary distribution
+        lldist = zeros(nsteps)
+        agedist = zeros(nsteps)
+        erosiondist = zeros(nsteps)
+
+        # Initial proposal
+        ageₚ = age
+        erosionₚ = erosion
+        densityₚ = copy(density)
+        llₚ = ll = crater_ll!(densityₚ, diam, density, density_sigma, age, erosion)
+
+        for i in 1:nsteps+burnin
+            # Make new proposal based on last accepted propsoal
+            erosionₚ = exp(log(erosion) + rand(Normal(0,1)))
+            ageₚ = age + rand(Normal(0, 0.05))
+
+            # Calculate log likelihood of new proposal
+            llₚ = crater_ll!(densityₚ, diam, density, density_sigma, ageₚ, erosionₚ)
+            
+            if log(rand()) < (llₚ-ll)
+                # Accept proposal!
+                ll = llₚ
+                age = ageₚ
+                erosion = erosionₚ
+            end
+
+            # Record current accepted result
+            if i > burnin
+                lldist[i-burnin] = ll
+                agedist[i-burnin] = age
+                erosiondist[i-burnin] = erosion
+            end
+        end
+
+        return lldist, agedist, erosiondist
+    end
+
+    function crater_ll!(densityₚ, diam, density, density_sigma, age, erosion)
+        diam_cf, density_cf = craterfreq(age, erosion)
+        # Possibly switch to interpolating in log space?
+        linterp1!(densityₚ, diam_cf, density_cf, diam)
+        ll = 0.0
+        for i in eachindex(densityₚ, density, density_sigma)
+            if !isnan(density[i])
+                ll += logpdf(Normal(density[i], density_sigma[i]), densityₚ[i]) # Could we use Poisson directly here??
+            end
+        end
+        return ll
+    end
+
 ## --- Define craterfreq function
 
 """
 '''julia
-function craterfreq(age::Number=1, diameter_min::Number=0.0039,
-    \tdiameter_max::Number=1024, EROSION::Bool=false,
-    \tSECONDARY::Bool=false, Beta::Number=1e-5; HARTMANN_PROD::Bool=true)
+function craterfreq(age::Number=1, beta::Number=1e-5;
+    \tdiameter_min::Number = 0.0039,
+    \tdiameter_max::Number = 1024, 
+    \tEROSION::Bool = beta>0, 
+    \tSECONDARY::Bool=false,
+    \tHARTMANN_PROD::Bool=true,
+)
 ```
 
 Based on range of craters chosen and surface age (Ga), returns list of crater
@@ -30,24 +87,19 @@ Smith et al 2008 model for erosion and B is erosion rate (nm/a).
 
 If HARTMANN_PROD if false, uses production function from Smith 2008; else,
 uses hartmann 1 Ga density, times ratio, divided by age.
-
-default inputs:
-age = 1
-CF_diamter_min = 0.0039
-diameter_max = 1024
-EROSION = false
-SECONDARY = false
-Beta = 1e-5
-HARTMANN_PROD = true
 """
-# age defaults to 1 Ga
-# diameter_min and diameter_max defines crater diameter range
-# erosion if true, erosion effects applied (Smith et al 2008 model for erosion, beta is erosion rate, min 1e-5)
-# if secondary impact is true, use the secondary correction model
-# hartmann prod if true, uses hartman production function
-function craterfreq(age::Number=1, diameter_min::Number=0.0039,
-    diameter_max::Number=1024, EROSION::Bool=false, SECONDARY::Bool=false,
-    Beta::Number=1e-5; HARTMANN_PROD::Bool=true)
+function craterfreq(age::Number=1, beta::Number=1e-5;
+        diameter_min::Number = 0.0039,
+        diameter_max::Number = 1024, 
+        EROSION::Bool = beta>0, 
+        SECONDARY::Bool=false,
+        HARTMANN_PROD::Bool=true,
+    )
+    # age defaults to 1 Ga
+    # diameter_min and diameter_max defines crater diameter range
+    # erosion if true, erosion effects applied (Smith et al 2008 model for erosion, beta is erosion rate, min 1e-5)
+    # if secondary impact is true, use the secondary correction model
+    # hartmann prod if true, uses hartman production function
 
     ## Calculates (with erosion) or loads crater sizes and frequencies
 
@@ -79,8 +131,8 @@ function craterfreq(age::Number=1, diameter_min::Number=0.0039,
         N = Array{Float64}(undef, size(Nh))
 
         # Set minimum erosion rate
-        if Beta == 0 ## Q for Marisa: how about if Beta < 1e-5?
-            Beta = 1e-5
+        if beta == 0 ## Q for Marisa: how about if beta < 1e-5?
+            beta = 1e-5
         end
 
         #iterates through each crater diameter BIN to calculate crater loss due to erosion
@@ -122,7 +174,7 @@ function craterfreq(age::Number=1, diameter_min::Number=0.0039,
             end
 
             # lambda: crater loss fnctn (rate of crater removal due to erosion (erosion rate beta))
-            L = Ψ*Beta/(1000*Ξ) 
+            L = Ψ*beta/(1000*Ξ) 
 
             # adjusted crater frequency
             N[i] = p/L*(1-exp(-L*age))
@@ -250,7 +302,7 @@ end
 
 ## --- Define CratModelFig2and5 function
 
-# Plots calculated subsurface ages given a parent age, surface area, and Beta value
+# Plots calculated subsurface ages given a parent age, surface area, and beta value
 function CratModelFig2and5(;min_age::Number=1, max_age::Number=3, num_ages::Int=3,
     min_crat_matrix::Array{<:Number}=[.016, .063, .125, .178, .25, .375, .5, 1.],
     area_surface::Number=20000, sub_area=100, iters::Int=100, diameter_max::Number=1000,
