@@ -1,5 +1,6 @@
 using StatGeochem, Plots, Distributions
 
+cd(@__DIR__)
 geol = importdataset("geology_combined.csv", importas=:Tuple)
 crat = importdataset("craters.csv", importas=:Tuple)
 
@@ -25,6 +26,8 @@ ds = (;geol...,
     model_age_sigma = fill(NaN, nunits),
     model_erosion = fill(NaN, nunits),
     model_erosion_sigma = fill(NaN, nunits),
+    model_erosion_025CI = fill(NaN, nunits),
+    model_erosion_975CI = fill(NaN, nunits),
 )
 
 step = 0.1
@@ -62,6 +65,8 @@ for i in eachindex(ds.Unit) # loops through each unit
         ds.model_age_sigma[i] = age_sigma = std(agedist)
         ds.model_erosion[i] = erosion = mean(erosiondist)
         ds.model_erosion_sigma[i] = erosion_sigma = std(erosiondist)
+        ds.model_erosion_025CI[i] = nanpctile(erosiondist, 2.5)
+        ds.model_erosion_975CI[i] = nanpctile(erosiondist, 97.5)
 
         diam_cf, density_cf = craterfreq(age, erosion)
         plot!(h, diam_cf, density_cf, 
@@ -70,6 +75,7 @@ for i in eachindex(ds.Unit) # loops through each unit
             ylims = nanextrema(density_cf),
         )
         savefig(h, "$unit isochron.pdf")
+        display(h)
 
         ha = plot(movmean(acceptancedist,100), ylims=(0,1), 
             ylabel="Acceptance (mean of 100)", 
@@ -90,7 +96,54 @@ for i in eachindex(ds.Unit) # loops through each unit
 end
 exportdataset(ds, "results.csv")
 
-## -- try calculating a particular isochron
+
+## --- Plot resulting erosion rates versus fitted age
+
+    h = scatter(ds.model_age, ds.model_erosion,
+        xerror = 2*ds.model_age_sigma,
+        yerror = (ds.model_erosion - ds.model_erosion_025CI, ds.model_erosion_975CI - ds.model_erosion),
+        framestyle=:box,
+        yscale=:log10,
+        xlabel = "Model Age [Ga]",
+        ylabel = "Erosion [nm/a]",
+        label = "",
+    )
+    savefig(h, "model_age_vs_erosion.pdf")
+    display(h)
+
+## --- Erosion rates versus nominal age
+
+    nominal_age = (ds.AgeMax + ds.AgeMin)/2
+    nominal_age_sigma = (ds.AgeMax - ds.AgeMin)/4
+    h = scatter(nominal_age, ds.model_erosion,
+        xerror = 2*nominal_age_sigma,
+        yerror = (ds.model_erosion - ds.model_erosion_025CI, ds.model_erosion_975CI - ds.model_erosion),
+        framestyle=:box,
+        yscale=:log10,
+        xlabel = "Nominal Age [Ga]",
+        ylabel = "Erosion [nm/a]",
+        label = "",
+    )
+    savefig(h, "nominal_age_vs_erosion.pdf")
+    display(h)
+
+
+## --- Modelled and nominal age_sigma
+
+    nominal_age = (ds.AgeMax + ds.AgeMin)/2
+    nominal_age_sigma = (ds.AgeMax - ds.AgeMin)/4
+    h = scatter(nominal_age, ds.model_age,
+        xerror = 2*nominal_age_sigma,
+        yerror = 2*ds.model_age_sigma,
+        framestyle=:box,
+        xlabel = "Nominal Age [Ga]",
+        ylabel = "Model Age [Ga]",
+        label = "",
+    )
+    savefig(h, "nominal_vs_model_age.pdf")
+    display(h)
+
+## --- Try calculating a particular isochron
 
 # unit = "AHi"
 unit = "HNt"
