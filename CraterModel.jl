@@ -88,7 +88,7 @@
 
         return acceptancedist, lldist, agedist, erosiondist
     end
-
+# Think about plotting age and erosion dists
     function crater_ll!(densityₚ, diam, density, density_sigma, age, erosion)
         diam_cf, density_cf = craterfreq(age, erosion)
         # Interpolate, in log space
@@ -238,105 +238,8 @@ function craterfreq(age::Number=1, beta::Number=1e-5;
     return (CF_crater_D, CF_crater_N)
 end
 
-## End RR commenting for now
-# experiment with crater stats (does not account for erosion, rolloff)
+
+# RR: experiment with crater stats? (does not account for erosion, rolloff)
 
 # try plotting a couple units- those frequencies vs crater freq
 ## --- Define cumul function
-
-function cumul(crater_count_density, IGNORE_EMPTY::Bool=true)
-    ## Cumulates crater count densities
-    num_bins = length(crater_count_density)
-    cumulate_count_density = Array{Float64}(undef,num_bins)
-    for k = 1:num_bins   #size bins
-        cumulate_count_density[k] = 0
-        if (crater_count_density[k] > 0) || ~IGNORE_EMPTY
-            for m = 1:(num_bins - k + 1)
-                cumulate_count_density[k] += crater_count_density[num_bins - m + 1]
-            end
-        end
-    end
-
-    return cumulate_count_density
-end
-
-## --- Define craterfit function
-
-# repalce with MCMC?
-function craterfit(diameters, count_dens, weight, CUMULATIVE::Bool,
-    SKIP_EMPTY::Bool, FIT_EROSION::Bool=false, SECONDARY::Bool=false)
-
-    ## Provides best fit age and beta (if FIT_EROSION) and RMSE for a crater count
-
-    # Precision for ages: higher slows runtime but gives more precise ages
-    FIT_prec = 10
-
-    if FIT_EROSION  #Test betas if FIT_EROSION is on
-        test_b = [1, (10:10:400)...]
-    else
-        test_b = [1]
-    end
-
-    if ~CUMULATIVE
-        # Just the diameters measured
-        max_d = diameters[end]
-    else
-        # All craters larger than measured, since need to cumulate them
-        max_d = 1000
-    end
-
-    RMSE = Array{Float64,2}(undef, length(test_b), 4*FIT_prec)
-    for i = 1:length(test_b)  # betas
-        for k = 1:(4*FIT_prec) # ages
-
-            RMSE[i,k] = 0
-
-            if FIT_EROSION   #gets theoretical crater frequency
-                d_theory = craterfreq(k/FIT_prec, diameters[1],
-                    max_d, true, SECONDARY, test_b[i])[2]
-            else
-                d_theory = craterfreq(k/FIT_prec, diameters[1], max_d)[2]
-            end
-
-            if CUMULATIVE  #Cumulates crater frequnecy if desired
-                d_theory = cumul(d_theory, SKIP_EMPTY)
-            end
-
-            for m = 1:length(diameters)
-                if weight==4  #gets RMSE for log weighting
-                    if count_dens[m]>0
-                        RMSE[i,k] .= ( RMSE[i,k]
-                            + (log10(count_dens[m])
-                            - log10(d_theory[m]))^2 )
-                    end
-                else
-                    if ~isnan(count_dens[m])  #gets RMSE for non-log weighting
-                        if ~SKIP_EMPTY || (count_dens[m] != 0)
-                            RMSE[i,k] = ( RMSE[i,k]
-                                + ((count_dens[m] - d_theory[m]).^2
-                                / d_theory[m].^(weight-1)) )
-                        end
-                    end
-                end
-            end
-            RMSE[i,k] = RMSE[i,k]^0.5
-        end
-    end
-
-    if FIT_EROSION  #finds minimum RMSE, depending on whether FIT_EROSION, which requires checking multiple columns
-        RMSE_min = minimum(minimum(RMSE, dims=1))
-        idx_k = argmin(minimum(RMSE, dims=1)[:])
-        idx_i = argmin(RMSE[:,idx_k])
-        age_calc = idx_k/FIT_prec
-        beta_calc = test_b[idx_i]
-    else
-        RMSE_min = minimum(RMSE[:])
-        idx = argmin(RMSE[:])
-        age_calc = idx / FIT_prec
-        beta_calc = 0
-    end
-
-    return (age_calc, beta_calc, RMSE_min)
-end
-
-
