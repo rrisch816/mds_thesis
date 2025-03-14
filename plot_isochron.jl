@@ -99,6 +99,7 @@ exportdataset(ds, "results.csv")
 
 ## --- Plot resulting erosion rates versus fitted age
 
+    c = resize_colormap(viridis, length(ds.Unit))
     h = scatter(ds.model_age, ds.model_erosion,
         xerror = 2*ds.model_age_sigma,
         yerror = (ds.model_erosion - ds.model_erosion_025CI, ds.model_erosion_975CI - ds.model_erosion),
@@ -107,12 +108,19 @@ exportdataset(ds, "results.csv")
         xlabel = "Model Age [Ga]",
         ylabel = "Erosion [nm/a]",
         label = "",
+        color = c,
     )
+    for i in eachindex(ds.Unit)
+        if !isnan(ds.model_age[i]) && !isnan(ds.model_erosion[i])
+            annotate!(h, ds.model_age[i]-2*ds.model_age_sigma[i], ds.model_erosion_975CI[i], text("$(ds.Unit[i])", 8, c[i], :right,))
+        end
+    end 
     savefig(h, "model_age_vs_erosion.pdf")
     display(h)
 
 ## --- Erosion rates versus nominal age
 
+    c = resize_colormap(viridis, length(ds.Unit))
     nominal_age = (ds.AgeMax + ds.AgeMin)/2
     nominal_age_sigma = (ds.AgeMax - ds.AgeMin)/4
     h = scatter(nominal_age, ds.model_erosion,
@@ -123,7 +131,13 @@ exportdataset(ds, "results.csv")
         xlabel = "Nominal Age [Ga]",
         ylabel = "Erosion [nm/a]",
         label = "",
+        color = c,
     )
+    for i in eachindex(ds.Unit)
+        if !isnan(nominal_age[i]) && !isnan(ds.model_erosion[i])
+            annotate!(h, nominal_age[i]-2*nominal_age_sigma[i], ds.model_erosion_975CI[i], text("$(ds.Unit[i])", 8, c[i], :right,))
+        end
+    end   
     savefig(h, "nominal_age_vs_erosion.pdf")
     display(h)
 
@@ -139,7 +153,13 @@ exportdataset(ds, "results.csv")
         xlabel = "Nominal Age [Ga]",
         ylabel = "Model Age [Ga]",
         label = "",
+        color = c,
     )
+    for i in eachindex(ds.Unit)
+        if !isnan(nominal_age[i]) && !isnan(ds.model_age[i])
+            annotate!(h, nominal_age[i]-2*nominal_age_sigma[i], ds.model_age[i]+2*ds.model_age_sigma[i], text("$(ds.Unit[i])", 8, c[i], :right,))
+        end
+    end    
     savefig(h, "nominal_vs_model_age.pdf")
     display(h)
 
