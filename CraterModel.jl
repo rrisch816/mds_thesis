@@ -237,9 +237,3 @@ function craterfreq(age::Number=1, beta::Number=1e-5;
     # gives x bins (diameter), y bins (frequencies)
     return (CF_crater_D, CF_crater_N)
 end
-
-
-# RR: experiment with crater stats? (does not account for erosion, rolloff)
-
-# try plotting a couple units- those frequencies vs crater freq
-## --- Define cumul function
