@@ -1,4 +1,4 @@
-using StatGeochem, Plots, Distributions
+using StatGeochem, Plots, Distributions, ColorSchemes, DataFrames
 
 cd(@__DIR__)
 geol = importdataset("geology_combined.csv", importas=:Tuple)
@@ -30,8 +30,8 @@ ds = (;geol...,
     model_erosion_975CI = fill(NaN, nunits),
 )
 
-step = 0.1
-logdiam_binedges = 0:step:log2(1000)
+binwidth = 0.1
+logdiam_binedges = 0:binwidth:log2(1000)
 logdiam_bincenters = (logdiam_binedges[1:end-1]+logdiam_binedges[2:end])/2
 diam_bincenters = exp2.(logdiam_bincenters)
 
@@ -41,8 +41,8 @@ for i in eachindex(ds.Unit) # loops through each unit
     ds.crater_count[i] = count(t)
     if count(t) > 1000 # Only consider units with more than 1000 counted craters
         N = histcounts(log2.(crat.DiamKM[t]), logdiam_binedges)
-        density = N ./ ds.Area[findfirst(ds.Unit.==unit)] ./ step
-        density_sigma = sqrt.(N) ./ ds.Area[findfirst(ds.Unit.==unit)] ./ step 
+        density = N ./ ds.Area[findfirst(ds.Unit.==unit)] ./ binwidth
+        density_sigma = sqrt.(N) ./ ds.Area[findfirst(ds.Unit.==unit)] ./ binwidth 
 
         # Plot crater density vs diameter
         density[density.<=0] .= NaN # replaces 0 or negative densities with NaN to avoid plotting/log errors
@@ -94,33 +94,74 @@ for i in eachindex(ds.Unit) # loops through each unit
         savefig(hl, "$unit lldist.pdf")
     end
 end
-exportdataset(ds, "results.csv")
 
+df = DataFrame(ds)  # convert named tuple to mutable DataFrame
+df.Period = Vector{String}(undef, nrow(df))
 
-## --- Plot resulting erosion rates versus fitted age
+for i in eachindex(df.UnitDesc)
+    desc = lowercase(df.UnitDesc[i])
+    if occursin("amazonian", desc) && occursin("hesperian", desc)
+        df.Period[i] = "HA"
+    elseif occursin("amazonian", desc) && occursin("noachian", desc)
+        df.Period[i] = "NA"
+    elseif occursin("hesperian", desc) && occursin("noachian", desc)
+        df.Period[i] = "NH"
+    elseif occursin("amazonian", desc)
+        df.Period[i] = "A"
+    elseif occursin("hesperian", desc)
+        df.Period[i] = "H"
+    elseif occursin("noachian", desc)
+        df.Period[i] = "N"
+    else
+        df.Period[i] = "Unknown"
+    end
+end
 
-    c = resize_colormap(viridis, length(ds.Unit))
-    h = scatter(ds.model_age, ds.model_erosion,
-        xerror = 2*ds.model_age_sigma,
-        yerror = (ds.model_erosion - ds.model_erosion_025CI, ds.model_erosion_975CI - ds.model_erosion),
-        framestyle=:box,
-        yscale=:log10,
-        xlabel = "Model Age [Ga]",
-        ylabel = "Erosion [nm/a]",
-        label = "",
-        color = c,
-    )
-    for i in eachindex(ds.Unit)
-        if !isnan(ds.model_age[i]) && !isnan(ds.model_erosion[i])
-            annotate!(h, ds.model_age[i]-2*ds.model_age_sigma[i], ds.model_erosion_975CI[i], text("$(ds.Unit[i])", 8, c[i], :right,))
-        end
-    end 
-    savefig(h, "model_age_vs_erosion.pdf")
-    display(h)
+exportdataset(Tables.columntable(df), "results.csv")
+
+unique_periods = unique(df.Period)
+period_colors = Dict(p => get(ColorSchemes.viridis, i / length(unique_periods)) for (i, p) in enumerate(unique_periods))
+colorvec = [period_colors[p] for p in df.Period]
+
+period_labels = Dict(
+    "A"  => "Amazonian",
+    "H"  => "Hesperian",
+    "N"  => "Noachian",
+    "NA" => "Noachian Amazonian",
+    "HA" => "Hesperian Amazonian",
+    "NH" => "Noachian Hesperian"
+)
+
+h = scatter(ds.model_age, ds.model_erosion,
+    xerror = 2*ds.model_age_sigma,
+    yerror = (ds.model_erosion - ds.model_erosion_025CI, ds.model_erosion_975CI - ds.model_erosion),
+    framestyle=:box,
+    yscale=:log10,
+    xlabel = "Model Age [Ga]",
+    ylabel = "Erosion [nm/a]",
+    yticks = [10^-3, 10^-2, 10^-1, 10^0, 10, 10^2, 10^3],
+    ylim = [10^-4, 10^4],
+    label = "",
+    color = colorvec,
+    legend = :bottomleft
+)
+# for i in eachindex(ds.Unit)
+#     if !isnan(ds.model_age[i]) && !isnan(ds.model_erosion[i])
+#         annotate!(h, ds.model_age[i]-0.25*ds.model_age_sigma[i], ds.model_erosion_975CI[i], text("$(ds.Unit[i])", 8, color = "black", :right,))
+#     end
+# end 
+
+for p in unique_periods
+    scatter!([NaN], [NaN], 
+        color = period_colors[p], 
+        label = period_labels[p], 
+        markershape = :circle)
+end
+
+savefig(h, "model_age_vs_erosion.pdf")
+display(h)
 
 ## --- Erosion rates versus nominal age
-
-    c = resize_colormap(viridis, length(ds.Unit))
     nominal_age = (ds.AgeMax + ds.AgeMin)/2
     nominal_age_sigma = (ds.AgeMax - ds.AgeMin)/4
     h = scatter(nominal_age, ds.model_erosion,
@@ -130,19 +171,28 @@ exportdataset(ds, "results.csv")
         yscale=:log10,
         xlabel = "Nominal Age [Ga]",
         ylabel = "Erosion [nm/a]",
+        yticks = [10^-3, 10^-2, 10^-1, 10^0, 10^1, 10^2, 10^3],
+        ylim = [10^-4, 10^4],
         label = "",
-        color = c,
+        color = colorvec,
+        legend = :bottomleft
     )
-    for i in eachindex(ds.Unit)
-        if !isnan(nominal_age[i]) && !isnan(ds.model_erosion[i])
-            annotate!(h, nominal_age[i]-2*nominal_age_sigma[i], ds.model_erosion_975CI[i], text("$(ds.Unit[i])", 8, c[i], :right,))
-        end
-    end   
+    # for i in eachindex(ds.Unit)
+    #     if !isnan(nominal_age[i]) && !isnan(ds.model_erosion[i])
+    #         annotate!(h, nominal_age[i]-0.25*nominal_age_sigma[i], ds.model_erosion_975CI[i], text("$(ds.Unit[i])", 8, colorvec[i], :right,))
+    #     end
+    # end   
+    for p in unique_periods
+        scatter!([NaN], [NaN], 
+            color = period_colors[p], 
+            label = period_labels[p], 
+            markershape = :circle)
+    end
     savefig(h, "nominal_age_vs_erosion.pdf")
     display(h)
 
 
-## --- Modelled and nominal age_sigma
+## --- Modeled and nominal age_sigma
 
     nominal_age = (ds.AgeMax + ds.AgeMin)/2
     nominal_age_sigma = (ds.AgeMax - ds.AgeMin)/4
@@ -153,12 +203,20 @@ exportdataset(ds, "results.csv")
         xlabel = "Nominal Age [Ga]",
         ylabel = "Model Age [Ga]",
         label = "",
-        color = c,
+        color = colorvec,
+        legend = :bottomright,
+        legendfontsize = 5,
     )
-    for i in eachindex(ds.Unit)
-        if !isnan(nominal_age[i]) && !isnan(ds.model_age[i])
-            annotate!(h, nominal_age[i]-2*nominal_age_sigma[i], ds.model_age[i]+2*ds.model_age_sigma[i], text("$(ds.Unit[i])", 8, c[i], :right,))
-        end
+    # for i in eachindex(ds.Unit)
+    #     if !isnan(nominal_age[i]) && !isnan(ds.model_age[i])
+    #         annotate!(h, nominal_age[i]-2*nominal_age_sigma[i], ds.model_age[i]+2*ds.model_age_sigma[i], text("$(ds.Unit[i])", 8, colorvec[i], :right,))
+    #     end
+    # end
+    for p in unique_periods
+        scatter!([NaN], [NaN], 
+            color = period_colors[p], 
+            label = period_labels[p], 
+            markershape = :circle)
     end    
     savefig(h, "nominal_vs_model_age.pdf")
     display(h)
@@ -168,13 +226,13 @@ exportdataset(ds, "results.csv")
 # unit = "AHi"
 unit = "HNt"
 t = crat.Unit .== unit # now extracts only craters in unit AHi (boolean mask)
-step = 0.1 # defines bin width in log base 2
-logdiam_binedges = 0:step:log2(512) # bin edges from log2(0) to log2(100)
+binwidth = 0.1 # defines bin width in log base 2
+logdiam_binedges = 0:binwidth:log2(512) # bin edges from log2(0) to log2(100)
 logdiam_bincenters = (logdiam_binedges[1:end-1]+logdiam_binedges[2:end])/2 # computes midpoint of each bin
 diam_bincenters = exp2.(logdiam_bincenters)
 N = histcounts(log2.(crat.DiamKM[t]), logdiam_binedges) #converts filtered crater diameters to log base 2, counts how many craters in each bin
-density = N ./ geol.Area[findfirst(geol.Unit.==unit)] ./ step # normalizes counts by area of unit AHi, finds index where unit equals AHi and grabs area
-density_sigma = sqrt.(N) ./ geol.Area[findfirst(geol.Unit.==unit)] ./ step 
+density = N ./ geol.Area[findfirst(geol.Unit.==unit)] ./ binwidth # normalizes counts by area of unit AHi, finds index where unit equals AHi and grabs area
+density_sigma = sqrt.(N) ./ geol.Area[findfirst(geol.Unit.==unit)] ./ binwidth 
 # further normalize with bin width step = 0.1
 density[density.==0] .= NaN
 
