@@ -3,7 +3,6 @@
 
 using StatGeochem, Plots, Distributions, ColorSchemes, DataFrames
 
-
 abl = importdataset("area_by_lat.csv", importas=:Tuple)
 crat = importdataset("craters.csv", importas=:Tuple)
 geol = importdataset("geology_combined.csv", importas=:Tuple)
@@ -65,7 +64,11 @@ include("CraterModel.jl")
 group_names = collect(keys(groups))
 summary_df = DataFrame(
     group_name = group_names,
+    unit = [groups[name].Unit for name in group_names],
     crater_count = [length(groups[name].Diameter) for name in group_names],
+    lat_band = [groups[name].Band for name in group_names],
+    min_lat = [band_edges[groups[name].Band] for name in group_names],
+    max_lat = [band_edges[groups[name].Band + 1] for name in group_names],
     model_age = fill(NaN, length(group_names)),
     model_age_sigma = fill(NaN, length(group_names)),
     model_erosion = fill(NaN, length(group_names)),
@@ -136,5 +139,7 @@ for i in eachindex(summary_df.group_name)
     )
     savefig(hl, joinpath(path, "$name lldist.pdf"))
 end
+
+exportdataset(Tables.columntable(summary_df), "lat_banded_results.csv")
 
 ## --- End of File
