@@ -1,12 +1,15 @@
 ## April 18th, 2025
-## Splitting craters by unit and lattitude band
+## Splitting craters by unit and latitude band
 
-using StatGeochem
+using StatGeochem, Plots, Distributions, ColorSchemes, DataFrames
+
 
 abl = importdataset("area_by_lat.csv", importas=:Tuple)
 crat = importdataset("craters.csv", importas=:Tuple)
+geol = importdataset("geology_combined.csv", importas=:Tuple)
+path = mkpath("band_results")
 
-##
+## --- 
 band_edges = collect(-85.0:17.0:85.0)
 latband_dict = Dict{Tuple{Float64, Float64}, Union{Int, Float64}}()
  
@@ -16,12 +19,11 @@ end
 latband_dict[(NaN, NaN)] = NaN
 
 # Unique combinations of (unit, latmin, latmax)
-abl_units = collect(zip(abl.SIM3292_Global_Geology_Unit, abl.min_lat, abl.max_lat))
-unique_unit_bands = unique(abl_units)
+unit_bands = collect(zip(abl.SIM3292_Global_Geology_Unit, abl.min_lat, abl.max_lat))
 
-groups = Dict{String, DataFrame}()
+groups = Dict{String, NamedTuple}()
 
-for (u, latmin, latmax) in unique_unit_bands
+for (u, latmin, latmax) in unit_bands
     pair = (latmin, latmax)
     band = get(latband_dict, pair, NaN)
     if isnan(band)
@@ -41,16 +43,19 @@ for (u, latmin, latmax) in unique_unit_bands
         continue
     end
 
-    df = DataFrame(
-        Unit = crat.Unit[t],
-        LAT = crat.LAT[t],
-        Band = fill(band, count(t)),
-        Area = fill(area, count(t)),
-        Diameter = crat.DiamKM[t]
+    nt = (;
+        Latitude = crat.LAT[t],
+        Longitude = crat.LON_E[t],
+        Diameter = crat.DiamKM[t],
+        Unit = u,
+        Band = band, 
+        Area = area,
+        AgeMin = geol.AgeMin[findfirst(x->x==u, geol.Unit)],
+        AgeMax = geol.AgeMax[findfirst(x->x==u, geol.Unit)],
     )
 
     group_name = "$(u)$(band)"
-    groups[group_name] = df
+    groups[group_name] = nt
 end
 
 ##--- Starting MCMC process
@@ -60,7 +65,7 @@ include("CraterModel.jl")
 group_names = collect(keys(groups))
 summary_df = DataFrame(
     group_name = group_names,
-    crater_count = [nrow(groups[name]) for name in group_names],
+    crater_count = [length(groups[name].Diameter) for name in group_names],
     model_age = fill(NaN, length(group_names)),
     model_age_sigma = fill(NaN, length(group_names)),
     model_erosion = fill(NaN, length(group_names)),
@@ -76,11 +81,11 @@ diam_bincenters = exp2.(logdiam_bincenters)
 
 for i in eachindex(summary_df.group_name)
     name = summary_df.group_name[i]
-    summary_df.crater_count[i] = nrow(groups[name])
-    
-    N = histcounts(log2.(crat.DiamKM[t]), logdiam_binedges)
-    density = N ./ ds.Area[findfirst(ds.Unit.==unit)] ./ binwidth
-    density_sigma = sqrt.(N) ./ ds.Area[findfirst(ds.Unit.==unit)] ./ binwidth 
+    nti = groups[name]
+
+    N = histcounts(log2.(nti.Diameter), logdiam_binedges)
+    density = N ./ nti.Area ./ binwidth
+    density_sigma = sqrt.(N) ./ nti.Area ./ binwidth 
 
     # Plot crater density vs diameter
     density[density.<=0] .= NaN # replaces 0 or negative densities with NaN to avoid plotting/log errors
@@ -89,22 +94,22 @@ for i in eachindex(summary_df.group_name)
         framestyle=:box,
         yscale=:log10, 
         xscale=:log10,
-        label="Observed densities (N = $(count(t)))",
+        label="Observed densities (N = $(summary_df.crater_count[i]))",
         ylabel="Crater density [Craters/km^2]",
         xlabel = "Crater diameter [km]",
-        title = ds.UnitDesc[i]
+        title = name
     )
 
-    @info "Runing MCMC on unit $unit:"
-    ageest = (ds.AgeMin[i]+ds.AgeMax[i])/2
+    @info "Runing MCMC on unit $name:"
+    ageest = (nti.AgeMin+nti.AgeMax)/2
     acceptancedist, lldist, agedist, erosiondist = crater_mcmc(diam_bincenters, density, density_sigma, age=ageest)
     
-    ds.model_age[i] = age = mean(agedist)
-    ds.model_age_sigma[i] = age_sigma = std(agedist)
-    ds.model_erosion[i] = erosion = mean(erosiondist)
-    ds.model_erosion_sigma[i] = erosion_sigma = std(erosiondist)
-    ds.model_erosion_025CI[i] = nanpctile(erosiondist, 2.5)
-    ds.model_erosion_975CI[i] = nanpctile(erosiondist, 97.5)
+    summary_df.model_age[i] = age = mean(agedist)
+    summary_df.model_age_sigma[i] = age_sigma = std(agedist)
+    summary_df.model_erosion[i] = erosion = mean(erosiondist)
+    summary_df.model_erosion_sigma[i] = erosion_sigma = std(erosiondist)
+    summary_df.model_erosion_025CI[i] = nanpctile(erosiondist, 2.5)
+    summary_df.model_erosion_975CI[i] = nanpctile(erosiondist, 97.5)
 
     diam_cf, density_cf = craterfreq(age, erosion)
     plot!(h, diam_cf, density_cf, 
@@ -112,22 +117,24 @@ for i in eachindex(summary_df.group_name)
         legend = :bottomleft,
         ylims = nanextrema(density_cf),
     )
-    savefig(h, "$unit isochron.pdf")
+    savefig(h, joinpath(path, "$name isochron.pdf"))
     display(h)
 
     ha = plot(movmean(acceptancedist,100), ylims=(0,1), 
         ylabel="Acceptance (mean of 100)", 
-        title = ds.UnitDesc[i],
+        title = name,
         framestyle=:box,
         label="", 
     )
-    savefig(ha, "$unit acceptancedist.pdf")
+    savefig(ha, joinpath(path, "$name acceptancedist.pdf"))
 
     hl = plot(lldist,
         ylabel="Log likelihood", 
-        title = ds.UnitDesc[i],
+        title = name,
         framestyle=:box,
         label="", 
     )
-    savefig(hl, "$unit lldist.pdf")
+    savefig(hl, joinpath(path, "$name lldist.pdf"))
 end
+
+## --- End of File
