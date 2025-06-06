@@ -1,0 +1,29 @@
+Name,Coef.,Std. Error,z,Pr(>|z|),Lower 95%,Upper 95%
+(Intercept),287.1,66.21,4.336,1.448e-5,157.3,416.9
+lat_banded_results_csv_lat_band: 2,1444.0,66.26,21.8,2.416e-105,1314.0,1574.0
+lat_banded_results_csv_lat_band: 3,-139.6,65.79,-2.122,0.03382,-268.6,-10.67
+lat_banded_results_csv_lat_band: 4,-337.0,65.72,-5.128,2.93e-7,-465.8,-208.2
+lat_banded_results_csv_lat_band: 5,-252.3,65.71,-3.84,0.0001231,-381.1,-123.5
+lat_banded_results_csv_lat_band: 6,-154.2,65.95,-2.338,0.01938,-283.5,-24.95
+lat_banded_results_csv_lat_band: 7,-137.5,66.23,-2.077,0.03782,-267.3,-7.735
+lat_banded_results_csv_lat_band: 8,-172.7,66.94,-2.58,0.009883,-303.9,-41.5
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: AHv,-84.41,21.91,-3.853,0.0001166,-127.4,-41.47
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: Av,36.65,64.83,0.5653,0.5719,-90.42,163.7
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: HNhu,114.3,92.56,1.234,0.217,-67.15,295.7
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: HNt,13.65,22.41,0.6088,0.5427,-30.29,57.58
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: Hp,-1466.0,169.4,-8.655,4.938e-18,-1798.0,-1134.0
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: Hto,-148.9,49.28,-3.022,0.002513,-245.5,-52.33
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: Htu,-33.9,72.77,-0.4658,0.6414,-176.5,108.7
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: eHh,-142.3,85.9,-1.656,0.09767,-310.6,26.09
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: eHt,-108.5,48.36,-2.243,0.02487,-203.3,-13.71
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: eHv,-49.0,18.73,-2.616,0.008901,-85.71,-12.28
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: eNh,179.8,9.341,19.25,1.464e-82,161.5,198.1
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: eNhm,3462.0,16.75,206.7,0.0,3429.0,3494.0
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: lHl,-121.2,53.46,-2.267,0.02341,-226.0,-16.4
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: lHt,-147.1,61.06,-2.409,0.01599,-266.8,-27.42
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: lHv,50.45,104.2,0.484,0.6284,-153.8,254.7
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: lNh,-87.04,12.38,-7.029,2.078e-12,-111.3,-62.77
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: lNv,-1267.0,20.31,-62.35,0.0,-1306.0,-1227.0
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: mAl,-113.8,212.0,-0.5367,0.5915,-529.2,301.7
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: mNh,-48.36,8.932,-5.415,6.133e-8,-65.87,-30.86
+Global_Geology_Intersect1_SIM3292_Global_Geology_Unit: mNhm,67.74,15.66,4.324,1.529e-5,37.04,98.44

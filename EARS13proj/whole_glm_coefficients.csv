@@ -1,0 +1,5 @@
+Name,Coef.,Std. Error,z,Pr(>|z|),Lower 95%,Upper 95%
+(Intercept),195.2,1.311,148.9,0.0,192.6,197.8
+drainage_density,38.0,34.3,1.108,0.2679,-29.22,105.2
+avg_slope_table_MEAN,11.78,0.1635,72.08,0.0,11.46,12.1
+relief_by_unit_relief,-0.008994,9.428e-5,-95.4,0.0,-0.009179,-0.008809
